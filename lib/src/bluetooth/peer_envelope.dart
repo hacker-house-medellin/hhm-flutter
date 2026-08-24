@@ -1,13 +1,15 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'peer_json_record.dart';
 import 'peer_payload.dart';
 import 'peer_rate_limiter.dart';
 import 'peer_session.dart';
 
-/// Exact `EncryptedEnvelope` wire object from hhm-interfaces commit f694bc9.
+/// Exact `EncryptedEnvelope` wire object from hhm-interfaces commit ffc1df71.
 /// The Flutter policy further limits decoded ciphertext to one small signed
-/// update manifest and imposes a 30-second runtime lifetime in the guard.
+/// update manifest or explicitly consented closed JSON record and imposes a
+/// 30-second runtime lifetime in the guard.
 final class EncryptedPeerEnvelope {
   EncryptedPeerEnvelope({
     required this.sessionId,
@@ -273,15 +275,19 @@ final class PeerEnvelopeGuard {
 }
 
 final class PeerReceiveResult {
-  const PeerReceiveResult._({this.manifest, this.rejection});
+  const PeerReceiveResult._({this.manifest, this.record, this.rejection});
   factory PeerReceiveResult.accepted(SignedUpdateManifest manifest) =>
       PeerReceiveResult._(manifest: manifest);
+  factory PeerReceiveResult.acceptedRecord(PeerJsonRecord record) =>
+      PeerReceiveResult._(record: record);
   const factory PeerReceiveResult.rejected(PeerEnvelopeRejection rejection) =
       _RejectedPeerReceiveResult;
 
   final SignedUpdateManifest? manifest;
+  final PeerJsonRecord? record;
   final PeerEnvelopeRejection? rejection;
-  bool get accepted => manifest != null && rejection == null;
+  bool get accepted =>
+      (manifest != null || record != null) && rejection == null;
 }
 
 final class _RejectedPeerReceiveResult extends PeerReceiveResult {
@@ -294,11 +300,13 @@ final class PeerEnvelopeReceiver {
     required this.guard,
     required this.cipher,
     this.codec = const PeerPayloadCodec(),
+    this.jsonRecordCodec = const PeerJsonRecordCodec(),
   });
 
   final PeerEnvelopeGuard guard;
   final PeerSessionCipher cipher;
   final PeerPayloadCodec codec;
+  final PeerJsonRecordCodec jsonRecordCodec;
 
   Future<PeerReceiveResult> receive({
     required ForegroundPeerConsent consent,
@@ -317,7 +325,8 @@ final class PeerEnvelopeReceiver {
     if (!admission.accepted) {
       return PeerReceiveResult.rejected(admission.rejection!);
     }
-    late final SignedUpdateManifest manifest;
+    SignedUpdateManifest? manifest;
+    PeerJsonRecord? record;
     try {
       final plaintext = await cipher.open(
         session: session,
@@ -325,7 +334,20 @@ final class PeerEnvelopeReceiver {
         associatedData: envelope.associatedData,
         ciphertext: envelope.ciphertextBytes,
       );
-      manifest = codec.decodeUpdateManifest(plaintext);
+      switch (envelope.payloadType) {
+        case PeerPayloadType.updateManifest:
+          manifest = codec.decodeUpdateManifest(plaintext);
+        case PeerPayloadType.residentMessage ||
+            PeerPayloadType.contactCard ||
+            PeerPayloadType.receipt:
+          record = jsonRecordCodec.decode(
+            payloadType: envelope.payloadType,
+            plaintext: plaintext,
+            now: now,
+          );
+        case PeerPayloadType.fileManifest:
+          throw const FormatException('File manifests are disabled');
+      }
     } on Object {
       return const PeerReceiveResult.rejected(
         PeerEnvelopeRejection.decryptionOrSchemaRejected,
@@ -340,7 +362,8 @@ final class PeerEnvelopeReceiver {
         PeerEnvelopeRejection.replayedOrOutOfOrder,
       );
     }
-    return PeerReceiveResult.accepted(manifest);
+    if (manifest case final value?) return PeerReceiveResult.accepted(value);
+    return PeerReceiveResult.acceptedRecord(record!);
   }
 }
 

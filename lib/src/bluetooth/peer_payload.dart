@@ -25,17 +25,40 @@ PeerPayloadType parsePeerPayloadType(String value) => switch (value) {
   ),
 };
 
-/// Flutter v1 is intentionally narrower than the canonical interface. Until a
-/// separate consented UX and typed schema land, it enables only signed update
-/// manifests. In particular, no presence, door, raw conversation, camera,
-/// location, arbitrary message, file chunk, script, or executable payload is
-/// decoded by this app.
+/// Flutter v1 is intentionally narrower than the canonical interface. Signed
+/// update manifests are enabled by their negotiated capability. Closed JSON
+/// records additionally require an explicit local, foreground sharing choice;
+/// their flags default off even when a session negotiated the capability.
+/// Presence, door operations, raw conversation/audio, camera/location data,
+/// arbitrary JSON, file chunks, scripts, and executables remain prohibited.
 final class HhmFlutterPeerPayloadPolicy {
-  const HhmFlutterPeerPayloadPolicy();
+  const HhmFlutterPeerPayloadPolicy({
+    this.allowResidentMessages = false,
+    this.allowContactCards = false,
+    this.allowReceipts = false,
+  });
+
+  final bool allowResidentMessages;
+  final bool allowContactCards;
+  final bool allowReceipts;
 
   bool allows(PeerPayloadType type, AuthenticatedPeerSession session) =>
-      type == PeerPayloadType.updateManifest &&
-      session.capabilities.contains(PeerCapability.updateManifest);
+      switch (type) {
+        PeerPayloadType.updateManifest => session.capabilities.contains(
+          PeerCapability.updateManifest,
+        ),
+        PeerPayloadType.residentMessage =>
+          allowResidentMessages &&
+              session.capabilities.contains(PeerCapability.residentMessage),
+        PeerPayloadType.contactCard =>
+          allowContactCards &&
+              session.capabilities.contains(PeerCapability.contactCard),
+        PeerPayloadType.receipt =>
+          allowReceipts &&
+              (session.capabilities.contains(PeerCapability.residentMessage) ||
+                  session.capabilities.contains(PeerCapability.contactCard)),
+        PeerPayloadType.fileManifest => false,
+      };
 }
 
 enum HhmApplicationId {
@@ -50,7 +73,7 @@ enum HhmReleasePlatform { android, ios, linux, macos, windows, web }
 
 enum HhmReleaseChannel { stable, beta }
 
-/// Exact `SignedUpdateManifest` from hhm-interfaces commit f694bc9.
+/// Exact `SignedUpdateManifest` from hhm-interfaces commit ffc1df71.
 final class SignedUpdateManifest {
   SignedUpdateManifest({
     required this.appId,

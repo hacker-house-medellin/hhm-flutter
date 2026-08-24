@@ -16,13 +16,17 @@ runner files are the next focused change; see
 - Separate visitor sign-in and sign-out QR actions. Payloads are backend-issued,
   rotate each minute, expire in at most 90 seconds, and redeem through one-time
   challenges.
-- Opt-in resident presence boundary for BLE plus an independent proximity
-  signal. Automatic transitions require explicit consent and server approval;
-  Bluetooth is never identity proof or a door-unlock factor.
+- Strict managed-doorway codecs and an opt-in evidence gate for a signed BLE
+  challenge plus separately keyed door-controller/NFC/UWB/local-network
+  corroboration. The app uploads only a coarse signal bucket, and only an
+  authenticated backend `accepted` decision can advance presence. Bluetooth
+  is never identity proof, exact human location, or a door-unlock factor.
 - Portable peer-to-peer Bluetooth contracts for explicit foreground peer
   selection, Shared Auth device-bound handshakes, encrypted replay-resistant
-  envelopes, and official update-manifest discovery. The feature is disabled
-  until reviewed native and cryptographic adapters are supplied.
+  envelopes, closed contact-card/plain-text-message/receipt JSON records, and
+  official update-manifest discovery. JSON sharing defaults off and requires a
+  negotiated capability plus an explicit local choice. Native transport and
+  cryptographic adapters remain disabled until reviewed implementations land.
 - Closed, privacy-safe Ores OTEL event schema with no arbitrary attributes or
   personal identifiers.
 - SOPS + age ciphertext under `env/enc`, process-scoped `just` commands, and a
@@ -78,9 +82,10 @@ just zed-install
 Zed materializes packages under `.vendor/.zed`. Do not commit that directory or
 invent `.zpkg.lock`; commit a lock only after a real resolver succeeds.
 
-The `hhm.p2p.v1` dependency is pinned to `hhm-interfaces` commit
-`f694bc9b58907db918f0449b5d04a5763f8fa745`. Its exact source paths, digests,
-and canonical fixture are recorded under [`protocol/`](protocol/README.md).
+The peer, P2P JSON, and managed-doorway contracts are pinned to
+`hhm-interfaces` commit `ffc1df71d1d89202b431f4830cc2a43e4a451da3`.
+Their exact source paths, digests, and byte-identical canonical fixtures are
+recorded under [`protocol/`](protocol/README.md).
 
 ## Security and privacy
 
@@ -92,8 +97,11 @@ and canonical fixture are recorded under [`protocol/`](protocol/README.md).
   Shared Auth device-bound verification, end-to-end encryption, expiry, replay
   rejection, and strict size/rate limits. It cannot authenticate from proximity,
   authorize a product action, report presence, or unlock a door.
-- Peers can announce only signed update metadata. Installation downloads an
-  official HTTPS artifact and verifies a pinned release key, anti-rollback
+- Peers can announce signed update metadata and, after explicit consent, carry
+  only the closed v1 JSON record set. Duplicate keys, unknown properties,
+  payload/schema mismatch, non-HTTPS links, expired records, arbitrary maps,
+  HTML, credentials, and executables are rejected. Installation still obtains
+  an official HTTPS artifact and verifies a pinned release key, anti-rollback
   counter, digest, byte count, and platform release signature; no peer bytes or
   executable code are loaded.
 - Use system-browser PKCE, exact callback matching, and protected platform token
