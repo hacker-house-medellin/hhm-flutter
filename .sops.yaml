@@ -1,0 +1,22 @@
+# Public age recipients for hacker-house-medellin/hhm-flutter.
+# Private keys stay on operator machines and never enter this repository.
+# Keep at least two recipients per environment so a lost key is recoverable.
+keys:
+  - &alex age1qrnva7lnv2jzww6ah5au0cqm4wkvkm5shpzflekdcm4nlu6wnyfqgfaxft
+  - &op_alex_macbook age1s8lcnaxn9g77s6j4g7p24w6sgvllpue0lzrsvp3xk02k2gwjj5ssnkp39q
+  - &recovery age1txv6jzlds2s03advmdtnm5l93qh4rkqs50nwvzk9yfvsartzue8se8t7jv
+
+creation_rules:
+  - path_regex: env/enc/dev\.env\.enc$
+    key_groups:
+      - age:
+          - *alex
+          - *op_alex_macbook
+          - *recovery
+
+  - path_regex: env/enc/prod\.env\.enc$
+    key_groups:
+      - age:
+          - *op_alex_macbook
+          - *alex
+          - *recovery

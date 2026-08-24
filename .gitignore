@@ -1,0 +1,54 @@
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+coverage/
+doc/api/
+
+# IDE and operating-system state.
+.idea/
+.vscode/
+*.iml
+.DS_Store
+
+# Flutter platform-local and signing material.
+android/key.properties
+android/local.properties
+ios/Flutter/ephemeral/
+macos/Flutter/ephemeral/
+linux/flutter/ephemeral/
+windows/flutter/ephemeral/
+*.jks
+*.keystore
+*.p12
+*.mobileprovision
+
+# Zed dependency materialization is reproducible and never committed.
+.vendor/.zed/
+zed_modules/
+
+# Plaintext environment files are local-only at every depth.
+.env
+.env.*
+*.env
+**/*.env
+**/**/*.env
+*/*.env
+*/**/*.env
+*.env.*
+!.env.example
+env/dec/
+
+# Only approved SOPS ciphertext profiles are trackable.
+/env/enc/*
+!/env/enc/dev.env.enc
+!/env/enc/prod.env.enc
+
+# age private keys never belong in source control.
+*.agekey
+*.age-key
+keys.txt
+sops-private*.txt
