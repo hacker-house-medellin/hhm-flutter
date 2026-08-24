@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -14,14 +15,16 @@ const foregroundId = 'ForegroundLife_0123456789abcdef';
 
 final class _Verifier implements SharedAuthPeerVerifier {
   @override
-  Future<bool> verifyRequest(PeerHandshakeRequest request) async => true;
+  Future<SharedAuthPeerVerification> verifyRequest(
+    PeerHandshakeRequest request,
+  ) async => SharedAuthPeerVerification.verified;
 
   @override
-  Future<bool> verifyAcceptedTranscript({
+  Future<SharedAuthPeerVerification> verifyAcceptedTranscript({
     required PeerHandshakeRequest request,
     required PeerHandshakeResponse response,
     required Uint8List canonicalTranscript,
-  }) async => true;
+  }) async => SharedAuthPeerVerification.verified;
 }
 
 final class _Cipher implements PeerSessionCipher {
@@ -42,6 +45,28 @@ final class _Cipher implements PeerSessionCipher {
     }
     return Uint8List.fromList(plaintext);
   }
+
+  @override
+  Future<Uint8List> seal({
+    required AuthenticatedPeerSession session,
+    required Uint8List nonce,
+    required Uint8List associatedData,
+    required Uint8List plaintext,
+  }) async => Uint8List.fromList(plaintext);
+}
+
+final class _DeferredCipher implements PeerSessionCipher {
+  _DeferredCipher(this.opened);
+
+  final Future<Uint8List> opened;
+
+  @override
+  Future<Uint8List> open({
+    required AuthenticatedPeerSession session,
+    required Uint8List nonce,
+    required Uint8List associatedData,
+    required Uint8List ciphertext,
+  }) => opened;
 
   @override
   Future<Uint8List> seal({
@@ -170,54 +195,35 @@ void main() {
     },
   );
 
-  test(
-    'replayed message/nonce and out-of-order sequence fail closed',
-    () async {
-      final value = await context();
-      final policy = guard(value);
-      final first = envelope();
-      expect(
-        policy
-            .admit(
-              consent: value.consent,
-              foregroundLifecycleId: foregroundId,
-              session: value.session,
-              envelope: first,
-              now: now,
-            )
-            .accepted,
-        isTrue,
-      );
-      expect(
-        policy
-            .admit(
-              consent: value.consent,
-              foregroundLifecycleId: foregroundId,
-              session: value.session,
-              envelope: first,
-              now: now,
-            )
-            .rejection,
-        PeerEnvelopeRejection.replayedOrOutOfOrder,
-      );
-      expect(
-        policy
-            .admit(
-              consent: value.consent,
-              foregroundLifecycleId: foregroundId,
-              session: value.session,
-              envelope: envelope(
-                id: secondMessageId,
-                sequence: 1,
-                nonce: 'MMMMMMMMMMMMMMMMMMMMMM',
-              ),
-              now: now,
-            )
-            .rejection,
-        PeerEnvelopeRejection.replayedOrOutOfOrder,
-      );
-    },
-  );
+  test('preflight is non-mutating', () async {
+    final value = await context();
+    final policy = guard(value);
+    final first = envelope();
+    expect(
+      policy
+          .admit(
+            consent: value.consent,
+            foregroundLifecycleId: foregroundId,
+            session: value.session,
+            envelope: first,
+            now: now,
+          )
+          .accepted,
+      isTrue,
+    );
+    expect(
+      policy
+          .admit(
+            consent: value.consent,
+            foregroundLifecycleId: foregroundId,
+            session: value.session,
+            envelope: first,
+            now: now,
+          )
+          .accepted,
+      isTrue,
+    );
+  });
 
   test('Flutter disables canonical message/file/contact payloads', () async {
     final value = await context();
@@ -331,28 +337,90 @@ void main() {
     expect(result.manifest!.antiRollbackCounter, 7);
   });
 
-  test('AEAD failure consumes the message and cannot retry', () async {
+  test(
+    'invalid high sequence cannot poison authenticated replay state',
+    () async {
+      final value = await context();
+      final policy = guard(value);
+      final invalidReceiver = PeerEnvelopeReceiver(
+        guard: policy,
+        cipher: _Cipher(plaintext: Uint8List(0), reject: true),
+      );
+      final invalid = await invalidReceiver.receive(
+        consent: value.consent,
+        foregroundLifecycleId: foregroundId,
+        session: value.session,
+        envelope: envelope(sequence: 100),
+        now: now,
+      );
+      expect(
+        invalid.rejection,
+        PeerEnvelopeRejection.decryptionOrSchemaRejected,
+      );
+
+      const codec = PeerPayloadCodec();
+      final validReceiver = PeerEnvelopeReceiver(
+        guard: policy,
+        cipher: _Cipher(plaintext: codec.encodeUpdateManifest(manifest())),
+      );
+      final valid = await validReceiver.receive(
+        consent: value.consent,
+        foregroundLifecycleId: foregroundId,
+        session: value.session,
+        envelope: envelope(
+          id: secondMessageId,
+          sequence: 1,
+          nonce: 'AgMEBQYHCAkKCwwNDg8QERITFBUWFxgZ',
+        ),
+        now: now,
+      );
+      expect(valid.accepted, isTrue, reason: valid.rejection?.name);
+    },
+  );
+
+  test('concurrent authenticated commits have exactly one winner', () async {
     final value = await context();
+    const codec = PeerPayloadCodec();
+    final opened = Completer<Uint8List>();
     final receiver = PeerEnvelopeReceiver(
       guard: guard(value),
-      cipher: _Cipher(plaintext: Uint8List(0), reject: true),
+      cipher: _DeferredCipher(opened.future),
     );
     final sealed = envelope();
-    final first = await receiver.receive(
+    final receives = <Future<PeerReceiveResult>>[
+      receiver.receive(
+        consent: value.consent,
+        foregroundLifecycleId: foregroundId,
+        session: value.session,
+        envelope: sealed,
+        now: now,
+      ),
+      receiver.receive(
+        consent: value.consent,
+        foregroundLifecycleId: foregroundId,
+        session: value.session,
+        envelope: sealed,
+        now: now,
+      ),
+    ];
+    opened.complete(codec.encodeUpdateManifest(manifest()));
+    final results = await Future.wait(receives);
+
+    expect(results.where((result) => result.accepted), hasLength(1));
+    expect(
+      results.where(
+        (result) =>
+            result.rejection == PeerEnvelopeRejection.replayedOrOutOfOrder,
+      ),
+      hasLength(1),
+    );
+    final repeated = await receiver.receive(
       consent: value.consent,
       foregroundLifecycleId: foregroundId,
       session: value.session,
       envelope: sealed,
       now: now,
     );
-    expect(first.rejection, PeerEnvelopeRejection.decryptionOrSchemaRejected);
-    final replay = await receiver.receive(
-      consent: value.consent,
-      foregroundLifecycleId: foregroundId,
-      session: value.session,
-      envelope: sealed,
-      now: now,
-    );
-    expect(replay.rejection, PeerEnvelopeRejection.replayedOrOutOfOrder);
+    expect(repeated.rejection, PeerEnvelopeRejection.replayedOrOutOfOrder);
   });
 }

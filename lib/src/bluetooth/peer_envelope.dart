@@ -252,20 +252,24 @@ final class PeerEnvelopeGuard {
         PeerEnvelopeRejection.rateLimited,
       );
     }
-    if (!replayGuard.consumeEnvelope(
-      sessionId: session.sessionId,
-      messageId: envelope.messageId,
-      nonce: envelope.nonce,
-      sequence: envelope.sequence,
-      expiresAt: envelope.expiresAt,
-      now: now,
-    )) {
-      return const PeerEnvelopeAdmission.rejected(
-        PeerEnvelopeRejection.replayedOrOutOfOrder,
-      );
-    }
     return const PeerEnvelopeAdmission.accepted();
   }
+
+  /// Atomically records an envelope only after its AEAD tag and strict payload
+  /// schema have both been authenticated. Concurrent receivers may pass
+  /// [admit], but exactly one can win this synchronous commit.
+  bool _commitAuthenticated({
+    required AuthenticatedPeerSession session,
+    required EncryptedPeerEnvelope envelope,
+    required DateTime now,
+  }) => replayGuard.consumeEnvelope(
+    sessionId: session.sessionId,
+    messageId: envelope.messageId,
+    nonce: envelope.nonce,
+    sequence: envelope.sequence,
+    expiresAt: envelope.expiresAt,
+    now: now,
+  );
 }
 
 final class PeerReceiveResult {
@@ -313,6 +317,7 @@ final class PeerEnvelopeReceiver {
     if (!admission.accepted) {
       return PeerReceiveResult.rejected(admission.rejection!);
     }
+    late final SignedUpdateManifest manifest;
     try {
       final plaintext = await cipher.open(
         session: session,
@@ -320,12 +325,22 @@ final class PeerEnvelopeReceiver {
         associatedData: envelope.associatedData,
         ciphertext: envelope.ciphertextBytes,
       );
-      return PeerReceiveResult.accepted(codec.decodeUpdateManifest(plaintext));
+      manifest = codec.decodeUpdateManifest(plaintext);
     } on Object {
       return const PeerReceiveResult.rejected(
         PeerEnvelopeRejection.decryptionOrSchemaRejected,
       );
     }
+    if (!guard._commitAuthenticated(
+      session: session,
+      envelope: envelope,
+      now: now,
+    )) {
+      return const PeerReceiveResult.rejected(
+        PeerEnvelopeRejection.replayedOrOutOfOrder,
+      );
+    }
+    return PeerReceiveResult.accepted(manifest);
   }
 }
 

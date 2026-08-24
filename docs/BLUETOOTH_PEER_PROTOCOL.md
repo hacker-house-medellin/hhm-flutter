@@ -22,12 +22,20 @@ handshake transcript signatures. The app does not exchange bearer or service
 tokens, refresh tokens, cookies, passwords, OTPs, private keys, provider
 credentials, or product permissions. Authentication establishes the remote
 device key for a short session; it does not grant an HHM product role.
+Invalid proof and unavailable/degraded verification are distinct typed outcomes,
+but both fail closed without establishing a peer session.
 
 Each accepted handshake selects at least one capability. Offer IDs, challenge
 nonces, session IDs, message IDs, envelope nonces, and monotonically increasing
 sequences are replay-checked and expire. Unknown protocol versions, fields,
 capabilities, payloads, key IDs, late messages, clock rollback, duplicates, and
 rate or size violations fail closed.
+
+Envelope preflight checks and charges the bounded rate budget without advancing
+replay state. The message ID, nonce, and sequence are committed atomically only
+after AEAD authentication and strict payload decoding succeed. Invalid
+ciphertext therefore cannot poison the sequence window, while two concurrent
+valid receives still yield exactly one accepted commit.
 
 ## Payload policy
 

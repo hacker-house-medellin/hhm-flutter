@@ -327,10 +327,14 @@ final class PeerHandshakeResponse {
 
 /// Verifies official Shared Auth audience/client/session/device binding and both
 /// device-bound signatures. Attestations are proofs, not transferable tokens.
-abstract interface class SharedAuthPeerVerifier {
-  Future<bool> verifyRequest(PeerHandshakeRequest request);
+enum SharedAuthPeerVerification { verified, invalid, unavailable }
 
-  Future<bool> verifyAcceptedTranscript({
+abstract interface class SharedAuthPeerVerifier {
+  Future<SharedAuthPeerVerification> verifyRequest(
+    PeerHandshakeRequest request,
+  );
+
+  Future<SharedAuthPeerVerification> verifyAcceptedTranscript({
     required PeerHandshakeRequest request,
     required PeerHandshakeResponse response,
     required Uint8List canonicalTranscript,
@@ -370,6 +374,7 @@ enum PeerSessionRejection {
   transcriptMismatch,
   capabilityDenied,
   attestationInvalid,
+  authenticationUnavailable,
   replayed,
   capacityExceeded,
 }
@@ -533,19 +538,39 @@ final class PeerSessionAuthority {
       );
     }
 
-    var verified = false;
+    SharedAuthPeerVerification requestVerification;
     try {
-      verified =
-          await verifier.verifyRequest(request) &&
-          await verifier.verifyAcceptedTranscript(
-            request: request,
-            response: response,
-            canonicalTranscript: _canonicalTranscript(request, response),
-          );
+      requestVerification = await verifier.verifyRequest(request);
     } on Object {
-      verified = false;
+      requestVerification = SharedAuthPeerVerification.unavailable;
     }
-    if (!verified) {
+    if (requestVerification == SharedAuthPeerVerification.unavailable) {
+      return const PeerSessionResult.rejected(
+        PeerSessionRejection.authenticationUnavailable,
+      );
+    }
+    if (requestVerification == SharedAuthPeerVerification.invalid) {
+      return const PeerSessionResult.rejected(
+        PeerSessionRejection.attestationInvalid,
+      );
+    }
+
+    SharedAuthPeerVerification transcriptVerification;
+    try {
+      transcriptVerification = await verifier.verifyAcceptedTranscript(
+        request: request,
+        response: response,
+        canonicalTranscript: _canonicalTranscript(request, response),
+      );
+    } on Object {
+      transcriptVerification = SharedAuthPeerVerification.unavailable;
+    }
+    if (transcriptVerification == SharedAuthPeerVerification.unavailable) {
+      return const PeerSessionResult.rejected(
+        PeerSessionRejection.authenticationUnavailable,
+      );
+    }
+    if (transcriptVerification == SharedAuthPeerVerification.invalid) {
       return const PeerSessionResult.rejected(
         PeerSessionRejection.attestationInvalid,
       );

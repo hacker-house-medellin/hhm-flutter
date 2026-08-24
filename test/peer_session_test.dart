@@ -10,27 +10,34 @@ const selectionId = 'SelectionId_0123456789abcdef';
 const foregroundId = 'ForegroundLife_0123456789abcdef';
 
 final class _Verifier implements SharedAuthPeerVerifier {
-  _Verifier({this.requestAccepted = true, this.transcriptAccepted = true});
+  _Verifier({
+    this.requestOutcome = SharedAuthPeerVerification.verified,
+    this.transcriptOutcome = SharedAuthPeerVerification.verified,
+  });
 
-  final bool requestAccepted;
-  final bool transcriptAccepted;
+  final SharedAuthPeerVerification requestOutcome;
+  final SharedAuthPeerVerification transcriptOutcome;
   int requestCalls = 0;
   int transcriptCalls = 0;
 
   @override
-  Future<bool> verifyRequest(PeerHandshakeRequest request) async {
+  Future<SharedAuthPeerVerification> verifyRequest(
+    PeerHandshakeRequest request,
+  ) async {
     requestCalls += 1;
-    return requestAccepted;
+    return requestOutcome;
   }
 
   @override
-  Future<bool> verifyAcceptedTranscript({
+  Future<SharedAuthPeerVerification> verifyAcceptedTranscript({
     required PeerHandshakeRequest request,
     required PeerHandshakeResponse response,
     required Uint8List canonicalTranscript,
   }) async {
     transcriptCalls += 1;
-    return transcriptAccepted && canonicalTranscript.isNotEmpty;
+    return canonicalTranscript.isEmpty
+        ? SharedAuthPeerVerification.invalid
+        : transcriptOutcome;
   }
 }
 
@@ -156,7 +163,9 @@ void main() {
   test('invalid attestation and peer-selection mismatch fail closed', () async {
     final invalid =
         await PeerSessionAuthority(
-          verifier: _Verifier(requestAccepted: false),
+          verifier: _Verifier(
+            requestOutcome: SharedAuthPeerVerification.invalid,
+          ),
           replayGuard: PeerReplayGuard(),
         ).establish(
           consent: consent(),
@@ -169,7 +178,9 @@ void main() {
 
     final invalidTranscript =
         await PeerSessionAuthority(
-          verifier: _Verifier(transcriptAccepted: false),
+          verifier: _Verifier(
+            transcriptOutcome: SharedAuthPeerVerification.invalid,
+          ),
           replayGuard: PeerReplayGuard(),
         ).establish(
           consent: consent(),
@@ -181,6 +192,24 @@ void main() {
     expect(
       invalidTranscript.rejection,
       PeerSessionRejection.attestationInvalid,
+    );
+
+    final unavailable =
+        await PeerSessionAuthority(
+          verifier: _Verifier(
+            requestOutcome: SharedAuthPeerVerification.unavailable,
+          ),
+          replayGuard: PeerReplayGuard(),
+        ).establish(
+          consent: consent(),
+          foregroundLifecycleId: foregroundId,
+          request: request(),
+          response: response(),
+          now: now,
+        );
+    expect(
+      unavailable.rejection,
+      PeerSessionRejection.authenticationUnavailable,
     );
 
     final verifier = _Verifier();
