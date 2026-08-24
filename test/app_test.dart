@@ -24,8 +24,10 @@ void main() {
     expect(find.text('Resident identity'), findsOneWidget);
     expect(find.text('Visitor QR'), findsOneWidget);
     expect(find.text('Proximity assistance'), findsOneWidget);
+    expect(find.text('Nearby peer exchange'), findsOneWidget);
     expect(find.textContaining('Bluetooth is never'), findsOneWidget);
     expect(find.textContaining('Codes rotate every minute'), findsOneWidget);
+    expect(find.textContaining('proximity never grants trust'), findsOneWidget);
 
     final signInButton = tester.widget<FilledButton>(
       find.widgetWithText(FilledButton, 'Scan sign-in QR'),
@@ -37,5 +39,10 @@ void main() {
     );
     expect(proximitySwitch.value, isFalse);
     expect(proximitySwitch.onChanged, isNull);
+
+    final peerButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Choose nearby peer'),
+    );
+    expect(peerButton.onPressed, isNull);
   });
 }

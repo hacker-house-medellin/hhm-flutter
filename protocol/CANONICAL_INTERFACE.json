@@ -1,0 +1,9 @@
+{
+  "repository": "https://github.com/hacker-house-medellin/hhm-interfaces",
+  "commit": "f694bc9b58907db918f0449b5d04a5763f8fa745",
+  "protocol_version": "hhm.p2p.v1",
+  "schema_path": "schemas/peer-session.json",
+  "schema_sha256": "2e9ab7864a1f3ac991dd76c43b2fec71ad075ba9ea760df1364e5119dde4a965",
+  "fixture_path": "fixtures/peer-session.json",
+  "fixture_sha256": "cc8c94f006db484196645056878342eccb6ad39c6ec42a77928ff35c6bdc92d8"
+}

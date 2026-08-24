@@ -19,6 +19,10 @@ runner files are the next focused change; see
 - Opt-in resident presence boundary for BLE plus an independent proximity
   signal. Automatic transitions require explicit consent and server approval;
   Bluetooth is never identity proof or a door-unlock factor.
+- Portable peer-to-peer Bluetooth contracts for explicit foreground peer
+  selection, Shared Auth device-bound handshakes, encrypted replay-resistant
+  envelopes, and official update-manifest discovery. The feature is disabled
+  until reviewed native and cryptographic adapters are supplied.
 - Closed, privacy-safe Ores OTEL event schema with no arbitrary attributes or
   personal identifiers.
 - SOPS + age ciphertext under `env/enc`, process-scoped `just` commands, and a
@@ -74,12 +78,24 @@ just zed-install
 Zed materializes packages under `.vendor/.zed`. Do not commit that directory or
 invent `.zpkg.lock`; commit a lock only after a real resolver succeeds.
 
+The `hhm.p2p.v1` dependency is pinned to `hhm-interfaces` commit
+`f694bc9b58907db918f0449b5d04a5763f8fa745`. Its exact source paths, digests,
+and canonical fixture are recorded under [`protocol/`](protocol/README.md).
+
 ## Security and privacy
 
 - QR and presence writes fail closed and become real only after backend
   acknowledgement.
 - Presence challenges and scan challenges are short-lived and nonce-bound;
   servers must consume them exactly once and rate-limit attempts.
+- Peer Bluetooth is transport only: it requires explicit foreground consent,
+  Shared Auth device-bound verification, end-to-end encryption, expiry, replay
+  rejection, and strict size/rate limits. It cannot authenticate from proximity,
+  authorize a product action, report presence, or unlock a door.
+- Peers can announce only signed update metadata. Installation downloads an
+  official HTTPS artifact and verifies a pinned release key, anti-rollback
+  counter, digest, byte count, and platform release signature; no peer bytes or
+  executable code are loaded.
 - Use system-browser PKCE, exact callback matching, and protected platform token
   storage for the dual-auth adapter.
 - Do not log QR payloads, tokens, names, door/beacon identifiers, precise
@@ -87,7 +103,9 @@ invent `.zpkg.lock`; commit a lock only after a real resolver succeeds.
 - Camera recognition and conversation recording are not part of this app. They
   require separate consent, retention, access-control, and legal review.
 
-The full trust model is in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+The full trust model is in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). The
+peer threat model and production gate are in
+[`docs/BLUETOOTH_PEER_PROTOCOL.md`](docs/BLUETOOTH_PEER_PROTOCOL.md).
 
 ## License
 

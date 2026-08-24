@@ -6,6 +6,10 @@ enum HhmOperation {
   visitorQrRedeemed,
   presenceChallengeRequested,
   presenceEvidenceSubmitted,
+  peerSelectionStarted,
+  peerHandshakeCompleted,
+  peerEnvelopeRejected,
+  peerUpdateManifestChecked,
 }
 
 enum HhmOperationResult { succeeded, rejected, cancelled, unavailable }

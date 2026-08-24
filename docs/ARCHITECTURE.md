@@ -22,7 +22,14 @@ sensor data.
    backend validates the signed session, timing, device binding, rate limit, and
    nonce consumption. This updates attendance only; it never unlocks a door or
    establishes identity.
-4. **Telemetry.** The client emits the typed `SafeTelemetryEvent` schema to an
+4. **Peer Bluetooth.** A person in the foreground explicitly selects one
+   rotating peer offer. Shared Auth device-bound attestations and transcript
+   signatures establish a short authenticated session; Bluetooth itself proves
+   nothing about identity or permissions. Encrypted, expiring envelopes enforce
+   replay, sequence, payload, size, and rate policy. Flutter currently accepts
+   signed update metadata only. It never transfers installable bytes, presence,
+   door actions, credentials, private content, or arbitrary files.
+5. **Telemetry.** The client emits the typed `SafeTelemetryEvent` schema to an
    HHM Ores OTEL-compatible collector. There is no arbitrary attribute bag or
    free-form exception text, preventing accidental export of tokens, QR data,
    radio identifiers, location, names, or content.
@@ -36,10 +43,13 @@ materializes them under `.vendor/.zed`; that directory is never committed.
 Commit `.zpkg.lock` only when a real Zed resolver run produces it—never fabricate
 a lock from repository metadata.
 
-Wire schemas originate in `hhm-interfaces`. This repository currently keeps the
-portable interfaces dependency-free so the scaffold can analyze and test before
-the generated Zed Dart targets are published. An adapter pull request should
-replace local transport shapes with generated clients rather than copy them.
+Wire schemas originate in `hhm-interfaces`. The peer-session contract is pinned
+to immutable commit `f694bc9b58907db918f0449b5d04a5763f8fa745`; exact paths,
+digests, and the canonical fixture live under `protocol/`. This repository keeps
+the portable runtime interfaces dependency-free so the scaffold can analyze and
+test before generated Zed Dart targets are published. An adapter pull request
+should replace local transport shapes with generated clients rather than fork
+or privately extend the shared wire contract.
 
 ## Explicit exclusions
 

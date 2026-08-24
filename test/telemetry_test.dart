@@ -4,7 +4,7 @@ import 'package:hhm_flutter/src/telemetry/telemetry.dart';
 void main() {
   test('exports only the closed privacy-safe attribute set', () {
     const event = SafeTelemetryEvent(
-      operation: HhmOperation.visitorQrRedeemed,
+      operation: HhmOperation.peerEnvelopeRejected,
       result: HhmOperationResult.rejected,
       platform: HhmPlatform.android,
       releaseEnvironment: HhmReleaseEnvironment.test,
@@ -22,6 +22,7 @@ void main() {
     expect(attributes.keys.any((key) => key.contains('user')), isFalse);
     expect(attributes.keys.any((key) => key.contains('token')), isFalse);
     expect(attributes.keys.any((key) => key.contains('location')), isFalse);
+    expect(attributes['hhm.operation'], 'peerEnvelopeRejected');
   });
 
   test('buckets duration without emitting exact timing', () {
