@@ -19,3 +19,7 @@ linter:
     only_throw_errors: true
     prefer_final_locals: true
     unawaited_futures: true
+
+# Functional-programming profile — see FP-GUIDELINES.md.
+# Uncomment once the existing analyzer findings are triaged:
+# include: analysis_options.fp.yaml
