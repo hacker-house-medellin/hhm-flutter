@@ -1,0 +1,14 @@
+{
+  "budget": {
+    "DA005": 9,
+    "DA007": 1
+  },
+  "stats": {
+    "dart": 7,
+    "files": 7,
+    "lines": 716,
+    "rust": 0,
+    "ts": 0
+  },
+  "version": "1.0.0"
+}
