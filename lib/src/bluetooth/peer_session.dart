@@ -85,7 +85,7 @@ final class ForegroundPeerConsent {
       now.isBefore(expiresAt);
 }
 
-/// Exact `hhm.p2p.v1` HandshakeRequest from hhm-interfaces commit f694bc9.
+/// Exact `hhm.p2p.v1` HandshakeRequest from hhm-interfaces commit ffc1df71.
 final class PeerHandshakeRequest {
   PeerHandshakeRequest({
     required this.sessionId,
@@ -192,7 +192,7 @@ enum PeerHandshakeRejectionCode {
   final String wireName;
 }
 
-/// Exact `hhm.p2p.v1` HandshakeResponse from hhm-interfaces commit f694bc9.
+/// Exact `hhm.p2p.v1` HandshakeResponse from hhm-interfaces commit ffc1df71.
 final class PeerHandshakeResponse {
   PeerHandshakeResponse({
     required this.sessionId,

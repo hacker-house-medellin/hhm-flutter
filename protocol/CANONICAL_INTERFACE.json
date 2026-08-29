@@ -1,9 +1,17 @@
 {
   "repository": "https://github.com/hacker-house-medellin/hhm-interfaces",
-  "commit": "f694bc9b58907db918f0449b5d04a5763f8fa745",
+  "commit": "ffc1df71d1d89202b431f4830cc2a43e4a451da3",
   "protocol_version": "hhm.p2p.v1",
   "schema_path": "schemas/peer-session.json",
   "schema_sha256": "2e9ab7864a1f3ac991dd76c43b2fec71ad075ba9ea760df1364e5119dde4a965",
   "fixture_path": "fixtures/peer-session.json",
-  "fixture_sha256": "cc8c94f006db484196645056878342eccb6ad39c6ec42a77928ff35c6bdc92d8"
+  "fixture_sha256": "cc8c94f006db484196645056878342eccb6ad39c6ec42a77928ff35c6bdc92d8",
+  "doorway_schema_path": "schemas/doorway-observation.json",
+  "doorway_schema_sha256": "d3a71790730c278590e602d2e297422264aaa05d215a1cbbed42863598e466bf",
+  "doorway_fixture_path": "fixtures/doorway-observation.json",
+  "doorway_fixture_sha256": "b4f70e954accecfec58fcbe9e8504f1bf7be104cfacdd209cd1c80c06773fb63",
+  "p2p_json_schema_path": "schemas/p2p-json-records.json",
+  "p2p_json_schema_sha256": "4e80b9de8d67c92a62e2d0ba90cc926f9868bbe8aeffde400d2e1489c0b99bdc",
+  "p2p_json_fixture_path": "fixtures/p2p-json-records.json",
+  "p2p_json_fixture_sha256": "d49aa5ee80e33603f82700b98488bf67af20885fe87c2ab8698647662aab9ba0"
 }

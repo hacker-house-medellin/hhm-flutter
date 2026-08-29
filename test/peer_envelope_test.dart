@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hhm_flutter/src/bluetooth/peer_envelope.dart';
+import 'package:hhm_flutter/src/bluetooth/peer_json_record.dart';
 import 'package:hhm_flutter/src/bluetooth/peer_payload.dart';
 import 'package:hhm_flutter/src/bluetooth/peer_rate_limiter.dart';
 import 'package:hhm_flutter/src/bluetooth/peer_session.dart';
@@ -87,11 +89,15 @@ final class _Context {
 void main() {
   final now = DateTime.utc(2026, 8, 24, 18);
 
-  Future<_Context> context() async {
+  Future<_Context> context({
+    Set<PeerCapability> capabilities = const <PeerCapability>{
+      PeerCapability.updateManifest,
+    },
+  }) async {
     final consent = ForegroundPeerConsent(
       selectionId: 'SelectionId_0123456789abcdef',
       selectedOfferId: offerId,
-      capabilities: const <PeerCapability>{PeerCapability.updateManifest},
+      capabilities: capabilities,
       foregroundLifecycleId: foregroundId,
       grantedAt: now.subtract(const Duration(seconds: 1)),
       expiresAt: now.add(const Duration(minutes: 1)),
@@ -104,18 +110,14 @@ void main() {
       deviceKeyId: 'device:example-1',
       deviceAttestation:
           'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
-      requestedCapabilities: const <PeerCapability>{
-        PeerCapability.updateManifest,
-      },
+      requestedCapabilities: capabilities,
       expiresAt: now.add(const Duration(minutes: 1)),
     );
     final response = PeerHandshakeResponse(
       sessionId: sessionId,
       offerId: offerId,
       decision: PeerHandshakeDecision.accepted,
-      selectedCapabilities: const <PeerCapability>{
-        PeerCapability.updateManifest,
-      },
+      selectedCapabilities: capabilities,
       ephemeralPublicKey: 'FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF',
       deviceKeyId: 'device:example-2',
       deviceAttestation:
@@ -159,9 +161,14 @@ void main() {
     expiresAt: expiresAt ?? now.add(const Duration(seconds: 20)),
   );
 
-  PeerEnvelopeGuard guard(_Context value) => PeerEnvelopeGuard(
+  PeerEnvelopeGuard guard(
+    _Context value, {
+    HhmFlutterPeerPayloadPolicy payloadPolicy =
+        const HhmFlutterPeerPayloadPolicy(),
+  }) => PeerEnvelopeGuard(
     replayGuard: value.replayGuard,
     rateLimiter: PeerRateLimiter(),
+    payloadPolicy: payloadPolicy,
   );
 
   SignedUpdateManifest manifest() => SignedUpdateManifest(
@@ -243,6 +250,49 @@ void main() {
       expect(result.rejection, PeerEnvelopeRejection.payloadDisabled);
     }
   });
+
+  test(
+    'closed JSON records require capability and explicit local consent',
+    () async {
+      final value = await context(
+        capabilities: const <PeerCapability>{
+          PeerCapability.residentMessage,
+          PeerCapability.contactCard,
+        },
+      );
+      const policy = HhmFlutterPeerPayloadPolicy(
+        allowResidentMessages: true,
+        allowContactCards: true,
+        allowReceipts: true,
+      );
+      for (final type in <PeerPayloadType>{
+        PeerPayloadType.residentMessage,
+        PeerPayloadType.contactCard,
+        PeerPayloadType.receipt,
+      }) {
+        final result = guard(value, payloadPolicy: policy).admit(
+          consent: value.consent,
+          foregroundLifecycleId: foregroundId,
+          session: value.session,
+          envelope: envelope(type: type),
+          now: now,
+        );
+        expect(result.accepted, isTrue, reason: type.wireName);
+      }
+      expect(
+        guard(value, payloadPolicy: policy)
+            .admit(
+              consent: value.consent,
+              foregroundLifecycleId: foregroundId,
+              session: value.session,
+              envelope: envelope(type: PeerPayloadType.fileManifest),
+              now: now,
+            )
+            .rejection,
+        PeerEnvelopeRejection.payloadDisabled,
+      );
+    },
+  );
 
   test(
     'sender key, foreground lifecycle, and 30-second lifetime are enforced',
@@ -336,6 +386,48 @@ void main() {
     expect(result.accepted, isTrue, reason: result.rejection?.name);
     expect(result.manifest!.antiRollbackCounter, 7);
   });
+
+  test(
+    'receiver decrypts an explicitly consented closed JSON record',
+    () async {
+      final value = await context(
+        capabilities: const <PeerCapability>{PeerCapability.contactCard},
+      );
+      const payloadPolicy = HhmFlutterPeerPayloadPolicy(
+        allowContactCards: true,
+      );
+      final plaintext = Uint8List.fromList(
+        utf8.encode(
+          jsonEncode(<String, Object?>{
+            'schema': 'hhm.contact-card.v1',
+            'record_id': '0ad352ae-5aec-4cbd-abd5-790987f2c6b4',
+            'display_alias': 'Ada',
+            'fields': <Object?>[
+              <String, Object?>{'kind': 'github', 'value': 'ada-resident'},
+            ],
+            'created_at': now
+                .subtract(const Duration(seconds: 1))
+                .toIso8601String(),
+            'expires_at': now.add(const Duration(minutes: 1)).toIso8601String(),
+          }),
+        ),
+      );
+      final receiver = PeerEnvelopeReceiver(
+        guard: guard(value, payloadPolicy: payloadPolicy),
+        cipher: _Cipher(plaintext: plaintext),
+      );
+      final result = await receiver.receive(
+        consent: value.consent,
+        foregroundLifecycleId: foregroundId,
+        session: value.session,
+        envelope: envelope(type: PeerPayloadType.contactCard),
+        now: now,
+      );
+      expect(result.accepted, isTrue);
+      expect(result.record, isA<ContactCard>());
+      expect(result.manifest, isNull);
+    },
+  );
 
   test(
     'invalid high sequence cannot poison authenticated replay state',

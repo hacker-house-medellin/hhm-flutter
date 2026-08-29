@@ -2,7 +2,7 @@
 
 This document is the Flutter app policy layered over the canonical
 `hhm.p2p.v1` wire contract in `hhm-interfaces` commit
-`f694bc9b58907db918f0449b5d04a5763f8fa745`. The exact source paths, fixture,
+`ffc1df71d1d89202b431f4830cc2a43e4a451da3`. The exact source paths, fixtures,
 and digests are under `protocol/`.
 
 ## Security boundary
@@ -39,12 +39,20 @@ valid receives still yield exactly one accepted commit.
 
 ## Payload policy
 
-`hhm-interfaces` defines an allowlist of interoperable payload type names. The
-Flutter policy currently permits only `hhm.update-manifest.v1` after an
-authenticated, end-to-end-encrypted session negotiated the `update_manifest`
-capability. The app denies resident messages, contact cards, file manifests,
-receipts, and any unknown type even though canonical parsers preserve those
-names for compatibility.
+`hhm-interfaces` defines an allowlist of interoperable payload type names and
+closed JSON schemas. The Flutter policy permits `hhm.update-manifest.v1` after
+an authenticated, end-to-end-encrypted session negotiated `update_manifest`.
+Bounded contact cards, plain-text resident messages, and receipts additionally
+require their negotiated capability plus an explicit local sharing choice that
+defaults off. File manifests and every unknown type remain disabled.
+
+The JSON decoder rejects duplicate object keys before `jsonDecode`, unknown or
+missing properties, envelope/schema mismatch, control characters, non-HTTPS
+website fields, expired or over-ten-minute records, and plaintext larger than
+16 KiB. Message text is rendered only as text. Arbitrary maps, HTML execution,
+dynamic telemetry attributes, and implicit file transfer are not extension
+mechanisms. Replay state is committed only after AEAD authentication and this
+strict schema validation both succeed.
 
 Peer exchange must never carry raw conversation, camera, microphone, face,
 activity, precise-location, beacon, visitor QR, password, token, secret,
