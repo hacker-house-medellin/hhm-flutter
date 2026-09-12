@@ -8,6 +8,7 @@ final class HhmApp extends StatelessWidget {
     this.onVisitorSignInScan,
     this.onVisitorSignOutScan,
     this.onProximityConsentChanged,
+    this.onChooseNearbyPeer,
     super.key,
   });
 
@@ -15,6 +16,7 @@ final class HhmApp extends StatelessWidget {
   final VoidCallback? onVisitorSignInScan;
   final VoidCallback? onVisitorSignOutScan;
   final ValueChanged<bool>? onProximityConsentChanged;
+  final VoidCallback? onChooseNearbyPeer;
 
   @override
   Widget build(BuildContext context) => MaterialApp(
@@ -32,6 +34,7 @@ final class HhmApp extends StatelessWidget {
       onVisitorSignInScan: onVisitorSignInScan,
       onVisitorSignOutScan: onVisitorSignOutScan,
       onProximityConsentChanged: onProximityConsentChanged,
+      onChooseNearbyPeer: onChooseNearbyPeer,
     ),
   );
 }
@@ -42,6 +45,7 @@ final class HhmHomeScreen extends StatelessWidget {
     this.onVisitorSignInScan,
     this.onVisitorSignOutScan,
     this.onProximityConsentChanged,
+    this.onChooseNearbyPeer,
     super.key,
   });
 
@@ -49,6 +53,7 @@ final class HhmHomeScreen extends StatelessWidget {
   final VoidCallback? onVisitorSignInScan;
   final VoidCallback? onVisitorSignOutScan;
   final ValueChanged<bool>? onProximityConsentChanged;
+  final VoidCallback? onChooseNearbyPeer;
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -113,6 +118,20 @@ final class HhmHomeScreen extends StatelessWidget {
               subtitle: const Text('Off by default; consent can be revoked.'),
               value: false,
               onChanged: onProximityConsentChanged,
+            ),
+          ),
+          const SizedBox(height: 12),
+          _CapabilityCard(
+            icon: Icons.devices_other_outlined,
+            title: 'Nearby peer exchange',
+            body:
+                'Choose a peer while this screen is in the foreground. '
+                'Shared Auth and encrypted expiring sessions protect signed '
+                'update metadata; proximity never grants trust or access.',
+            footer: FilledButton.tonalIcon(
+              onPressed: onChooseNearbyPeer,
+              icon: const Icon(Icons.person_search_outlined),
+              label: const Text('Choose nearby peer'),
             ),
           ),
           const SizedBox(height: 12),
