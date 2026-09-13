@@ -18,6 +18,7 @@ dir = ".vendor/.zed"
 "hacker-house-medellin/hhm-interfaces" = "^0.1.0"
 "hacker-house-medellin/hhm-sync" = "^0.1.0"
 "shared-auth/shared-auth-clients" = "^0.1.0"
+"oresoftware/ores-flutter" = "^0.1.0"
 
 [publish]
 include_readme = true
