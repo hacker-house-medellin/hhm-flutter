@@ -8,6 +8,10 @@ environment:
   flutter: ">=3.38.0"
 
 dependencies:
+  ores_otel_flutter:
+    git:
+      url: https://github.com/ores-otel/ores-otel-flutter.git
+      ref: c7cf306eee7b07408057753251f937ea58f8e9ed
   flutter:
     sdk: flutter
 
