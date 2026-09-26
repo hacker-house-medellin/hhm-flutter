@@ -26,7 +26,6 @@ exclude = [".env", ".env.*", "env/dec/**", "build/**", ".dart_tool/**", ".vendor
 
 [scripts]
 test = "flutter test"
-check = "just check"
 
 [targets.dart]
 dir = "."
