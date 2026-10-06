@@ -33,6 +33,14 @@ system browser plus exact callback matching for dual auth, secure platform
 storage for session material, a cryptographic RNG for scan/observation nonces,
 and backend acknowledgement for all presence transitions.
 
+Peer Bluetooth is a distinct foreground-only adapter. It must expose explicit
+peer selection, implement authenticated key agreement through reviewed Shared
+Auth device-bound verification, use platform-backed private keys plus reviewed
+AEAD, and obey the portable replay, expiry, payload, size, and rate policy. It
+must not reuse presence observations as authentication or carry bearer tokens.
+Update adapters fetch only from official HTTPS origins after pinned release-key
+and anti-rollback verification; peer-provided artifact bytes are never accepted.
+
 The companion `hhm-desktop-app.rs` may later expose a C ABI consumed through
 `dart:ffi`. Keep that bridge behind a Flutter interface so the native Rust UI
 can complement the Flutter desktop UI without becoming a mandatory mobile or
